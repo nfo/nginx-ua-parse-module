@@ -242,8 +242,8 @@ static ngx_int_t ngx_http_ua_parse_variable(ngx_http_request_t *r,
     ngx_http_ua_parse_elem_t   	*ptr, *cur;
     int                         rc, *captures;
     ngx_array_t					*lst;
-    ngx_str_t					str;
-    u_char						*p, *foundStr;
+    ngx_str_t					str, strVersion;
+    u_char						*p, *foundStr, *foundStrVersion;
 
     upcf = ngx_http_get_module_main_conf(r, ngx_http_ua_parse_module);
     v->valid = 0;
@@ -295,6 +295,22 @@ static ngx_int_t ngx_http_ua_parse_variable(ngx_http_request_t *r,
         	str.data = p = ngx_alloc(100 * sizeof(u_char), r->connection->log);
         	ngx_memzero(p, 100 * sizeof(u_char));
         	p = ngx_sprintf(p, (const char *)cur->replacement->data, foundStr);
+
+          // If IE, add its version
+          if (data == NGX_UA_PARSE_BROWSER_FAMILY && ngx_strcmp(cur->replacement->data, "IE") == 0 && captures[4] && captures[5] && captures[5] - captures[4] > 0) {
+            // Match the second one (captures[4] is the start, captures[5] is the end)
+            strVersion.data = (u_char *) (r->headers_in.user_agent->value.data + captures[4]);
+            strVersion.len = captures[5] - captures[4];
+
+            // Copy the string to the foundStrVersion place...
+            foundStrVersion = ngx_alloc((strVersion.len + 1) * sizeof(u_char), r->connection->log);
+            ngx_memzero(foundStrVersion, (strVersion.len + 1) * sizeof(u_char)); // Make sure there will be '\0' in the end
+            ngx_memcpy(foundStrVersion, strVersion.data, strVersion.len * sizeof(u_char));
+
+            // Add the version number to the final result
+            p = ngx_sprintf(p, " %s", foundStrVersion);
+          }
+
         	*p = '\0';
         	str.len = p - str.data;
         }
